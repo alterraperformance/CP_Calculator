@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 
@@ -155,26 +154,17 @@ st.markdown(WHITE_THEME_CSS, unsafe_allow_html=True)
 
 # Initialize intervals
 if "intervals" not in st.session_state:
-    # seed with a couple like your screenshot style
     st.session_state["intervals"] = [
         {"min": 3, "sec": 0, "watts": 417},
         {"min": 12, "sec": 0, "watts": 331},
     ]
 
-# Header row with Export button on the right
-c1, c2 = st.columns([6, 1.4], vertical_alignment="center")
-with c1:
-    st.markdown('<div class="cp-title"><h1>Critical Power</h1></div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="cp-subtitle">Calculate your physiological threshold (CP) and anaerobic work capacity (W′) using the 2-parameter model.</div>',
-        unsafe_allow_html=True,
-    )
-
-# We'll fill export later after we compute a model (if possible)
-export_payload = None
-with c2:
-    st.write("")  # spacing
-    export_placeholder = st.empty()
+# Header (no Export)
+st.markdown('<div class="cp-title"><h1>Critical Power</h1></div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="cp-subtitle">Calculate your physiological threshold (CP) and anaerobic work capacity (W′) using the 2-parameter model.</div>',
+    unsafe_allow_html=True,
+)
 
 st.write("")
 left, right = st.columns([1.05, 1.95], gap="large")
@@ -188,7 +178,6 @@ with left:
     st.markdown('<div class="help">Enter your best efforts for different durations.</div>', unsafe_allow_html=True)
     st.write("")
 
-    # Render existing intervals
     for idx, row in enumerate(st.session_state["intervals"]):
         cols = st.columns([1, 1, 1.3, 0.6], vertical_alignment="bottom")
         row["min"] = cols[0].number_input("MIN", min_value=0, max_value=240, value=int(row["min"]), key=f"min_{idx}")
@@ -197,7 +186,6 @@ with left:
         if cols[3].button("🗑️", key=f"del_{idx}"):
             st.session_state["intervals"].pop(idx)
             st.rerun()
-
         st.write("")
 
     add_col, _ = st.columns([1, 1])
@@ -206,22 +194,13 @@ with left:
         st.rerun()
 
     st.write("")
-    calc_clicked = st.button(" Calculate Profile", use_container_width=True)
-
-    st.write("")
-    st.markdown("**Testing Protocol Tips:**")
-    st.markdown(
-        "- Use fresh “all-out” efforts.\n"
-        "- Recommended durations: **3 min, 7 min, 12 min**.\n"
-        "- Avoid very short efforts (under 2 min) for this model."
-    )
+    st.button(" Calculate Profile", use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ----------------------------
 # RIGHT: Results + Predictor + Plot
 # ----------------------------
 with right:
-    # Try fit if possible (or if calculate pressed)
     intervals = [
         Interval(int(r["min"]), int(r["sec"]), float(r["watts"]))
         for r in st.session_state["intervals"]
@@ -239,33 +218,6 @@ with right:
         except Exception as e:
             fit_error = str(e)
 
-    # Export payload if model exists
-    if cp_w is not None and wprime_j is not None and r2 is not None:
-        export_payload = {
-            "cp_watts": cp_w,
-            "w_prime_joules": wprime_j,
-            "w_prime_kj": wprime_j / 1000.0,
-            "r2": r2,
-            "intervals": [
-                {"minutes": iv.minutes, "seconds": iv.seconds, "duration_s": iv.t_seconds, "watts": iv.watts}
-                for iv in intervals
-            ],
-            "model": "2-parameter CP (Work = W' + CP*t)",
-        }
-
-    with c2:
-        if export_payload is not None:
-            export_placeholder.download_button(
-                "Export",
-                data=json.dumps(export_payload, indent=2),
-                file_name="critical_power_profile.json",
-                mime="application/json",
-                use_container_width=True,
-            )
-        else:
-            export_placeholder.button("Export", disabled=True, use_container_width=True)
-
-    # Results cards row
     cards = st.columns(3, gap="medium")
 
     def card(title: str, value: str, subtitle: str):
@@ -303,10 +255,12 @@ with right:
 
     st.write("")
 
-    # Predictor card
     st.markdown('<div class="cp-card">', unsafe_allow_html=True)
     st.markdown("### Performance Predictor")
-    st.markdown('<div class="cp-muted">Estimate your max power for any duration based on your CP model.</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="cp-muted">Estimate your max power for any duration based on your CP model.</div>',
+        unsafe_allow_html=True,
+    )
     st.write("")
 
     pcols = st.columns([1, 1, 0.2, 2], vertical_alignment="bottom")
@@ -340,23 +294,19 @@ with right:
 
     st.write("")
 
-    # Plot: Power-duration model
     st.markdown('<div class="cp-card">', unsafe_allow_html=True)
     st.markdown("### Power Duration Model")
 
     fig, ax = plt.subplots()
     if cp_w is not None and wprime_j is not None:
-        # Curve from 30s to 20 minutes by default (like the screenshot)
         t_curve = np.linspace(30, 20 * 60, 400)
         p_curve = cp_w + (wprime_j / t_curve)
 
         ax.plot(t_curve / 60.0, p_curve, linewidth=2)
 
-        # CP line
         ax.axhline(cp_w, linestyle="--", linewidth=1)
         ax.text(20.0, cp_w, f"  CP: {cp_w:.0f}W", va="center")
 
-        # Plot the points
         t_pts = np.array([iv.t_seconds for iv in intervals]) / 60.0
         p_pts = np.array([iv.watts for iv in intervals])
         ax.scatter(t_pts, p_pts)
