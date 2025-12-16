@@ -73,7 +73,7 @@ def predict_power(cp_w: float, wprime_j: float, t_seconds: int) -> float:
 # Streamlit UI
 # ----------------------------
 
-st.set_page_config(page_title="Critical Power", layout="wide")
+st.set_page_config(page_title="Critical Power Calculator", layout="wide")
 
 WHITE_THEME_CSS = """
 <style>
@@ -170,15 +170,6 @@ with c1:
         unsafe_allow_html=True,
     )
 
-# We'll fill export later after we compute a model (if possible)
-export_payload = None
-with c2:
-    st.write("")  # spacing
-    export_placeholder = st.empty()
-
-st.write("")
-left, right = st.columns([1.05, 1.95], gap="large")
-
 # ----------------------------
 # LEFT: Test Intervals
 # ----------------------------
@@ -238,32 +229,6 @@ with right:
             cp_w, wprime_j, r2 = fit_cp_model(intervals)
         except Exception as e:
             fit_error = str(e)
-
-    # Export payload if model exists
-    if cp_w is not None and wprime_j is not None and r2 is not None:
-        export_payload = {
-            "cp_watts": cp_w,
-            "w_prime_joules": wprime_j,
-            "w_prime_kj": wprime_j / 1000.0,
-            "r2": r2,
-            "intervals": [
-                {"minutes": iv.minutes, "seconds": iv.seconds, "duration_s": iv.t_seconds, "watts": iv.watts}
-                for iv in intervals
-            ],
-            "model": "2-parameter CP (Work = W' + CP*t)",
-        }
-
-    with c2:
-        if export_payload is not None:
-            export_placeholder.download_button(
-                "Export",
-                data=json.dumps(export_payload, indent=2),
-                file_name="critical_power_profile.json",
-                mime="application/json",
-                use_container_width=True,
-            )
-        else:
-            export_placeholder.button("Export", disabled=True, use_container_width=True)
 
     # Results cards row
     cards = st.columns(3, gap="medium")
