@@ -218,37 +218,42 @@ with right:
         except Exception as e:
             fit_error = str(e)
 
+   def card(title: str, value: str, subtitle: str):
+    st.markdown(
+        f"""
+        <div class="cp-card">
+          <div class="cp-muted">{title}</div>
+          <div class="cp-metric">{value}</div>
+          <div class="cp-muted">{subtitle}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# Only show result cards if model fit exists
+if cp_w is not None and wprime_j is not None and r2 is not None:
     cards = st.columns(3, gap="medium")
 
-    def card(title: str, value: str, subtitle: str):
-        st.markdown(
-            f"""
-            <div class="cp-card">
-              <div class="cp-muted">{title}</div>
-              <div class="cp-metric">{value}</div>
-              <div class="cp-muted">{subtitle}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+    with cards[0]:
+        card(
+            "Critical Power (CP)",
+            f"{cp_w:.0f}<span class='cp-unit'>W</span>",
+            "Sustainable threshold power",
         )
 
-    with cards[0]:
-        if cp_w is None:
-            card("Critical Power (CP)", "—", "Sustainable threshold power")
-        else:
-            card("Critical Power (CP)", f"{cp_w:.0f}<span class='cp-unit'>W</span>", "Sustainable threshold power")
-
     with cards[1]:
-        if wprime_j is None:
-            card("W′ (Anaerobic)", "—", "Energy above threshold")
-        else:
-            card("W′ (Anaerobic)", f"{(wprime_j/1000):.1f}<span class='cp-unit'>kJ</span>", "Energy above threshold")
+        card(
+            "W′ (Anaerobic)",
+            f"{(wprime_j/1000):.1f}<span class='cp-unit'>kJ</span>",
+            "Energy above threshold",
+        )
 
     with cards[2]:
-        if r2 is None:
-            card("Model Fit (R²)", "—", "Statistical accuracy (1.0 is perfect)")
-        else:
-            card("Model Fit (R²)", f"{r2:.3f}", "Statistical accuracy (1.0 is perfect)")
+        card(
+            "Model Fit (R²)",
+            f"{r2:.3f}",
+            "Statistical accuracy (1.0 is perfect)",
+        )
 
     if fit_error:
         st.error(f"Model fit issue: {fit_error}")
