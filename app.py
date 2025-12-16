@@ -76,18 +76,14 @@ st.set_page_config(page_title="Critical Power", layout="wide")
 
 WHITE_THEME_CSS = """
 <style>
-/* Page background */
-.stApp {
-  background: #ffffff;
-}
+.stApp { background: #ffffff; }
 
-/* Make Streamlit blocks breathe a bit */
 .block-container {
   padding-top: 1.6rem;
   padding-bottom: 2rem;
 }
 
-/* Title row */
+/* Title */
 .cp-title h1 {
   font-size: 2.2rem;
   margin: 0;
@@ -97,17 +93,13 @@ WHITE_THEME_CSS = """
   margin-top: 0.25rem;
 }
 
-/* Card styling */
+/* Card */
 .cp-card {
   border: 1px solid #e5e7eb;
   border-radius: 16px;
   padding: 16px 16px;
   background: #ffffff;
   box-shadow: 0 6px 18px rgba(0,0,0,0.06);
-}
-.cp-card h3 {
-  margin: 0 0 8px 0;
-  font-size: 1.05rem;
 }
 .cp-muted {
   color: #6b7280;
@@ -125,26 +117,16 @@ WHITE_THEME_CSS = """
   color: #6b7280;
   margin-left: 6px;
 }
-.cp-accent {
-  color: #0ea5a8; /* teal-ish accent */
-}
+.cp-accent { color: #0ea5a8; }
 
-/* Interval row */
-.interval-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1.3fr 0.4fr;
-  gap: 10px;
-  align-items: end;
-}
-
-/* Small helper text */
+/* Helper text */
 .help {
   color: #6b7280;
   font-size: 0.9rem;
 }
 
-/* Button tweaks */
-div.stButton > button, div.stDownloadButton > button {
+/* Buttons */
+div.stButton > button {
   border-radius: 12px;
   padding: 0.6rem 0.9rem;
 }
@@ -159,7 +141,7 @@ if "intervals" not in st.session_state:
         {"min": 12, "sec": 0, "watts": 331},
     ]
 
-# Header (no Export)
+# Header (no export)
 st.markdown('<div class="cp-title"><h1>Critical Power</h1></div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="cp-subtitle">Calculate your physiological threshold (CP) and anaerobic work capacity (W′) using the 2-parameter model.</div>',
@@ -180,12 +162,20 @@ with left:
 
     for idx, row in enumerate(st.session_state["intervals"]):
         cols = st.columns([1, 1, 1.3, 0.6], vertical_alignment="bottom")
-        row["min"] = cols[0].number_input("MIN", min_value=0, max_value=240, value=int(row["min"]), key=f"min_{idx}")
-        row["sec"] = cols[1].number_input("SEC", min_value=0, max_value=59, value=int(row["sec"]), key=f"sec_{idx}")
-        row["watts"] = cols[2].number_input("WATTS", min_value=1, max_value=3000, value=int(row["watts"]), key=f"w_{idx}")
+        row["min"] = cols[0].number_input(
+            "MIN", min_value=0, max_value=240, value=int(row["min"]), key=f"min_{idx}"
+        )
+        row["sec"] = cols[1].number_input(
+            "SEC", min_value=0, max_value=59, value=int(row["sec"]), key=f"sec_{idx}"
+        )
+        row["watts"] = cols[2].number_input(
+            "WATTS", min_value=1, max_value=3000, value=int(row["watts"]), key=f"w_{idx}"
+        )
+
         if cols[3].button("🗑️", key=f"del_{idx}"):
             st.session_state["intervals"].pop(idx)
             st.rerun()
+
         st.write("")
 
     add_col, _ = st.columns([1, 1])
@@ -195,12 +185,14 @@ with left:
 
     st.write("")
     st.button(" Calculate Profile", use_container_width=True)
+
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ----------------------------
 # RIGHT: Results + Predictor + Plot
 # ----------------------------
 with right:
+    # Parse intervals
     intervals = [
         Interval(int(r["min"]), int(r["sec"]), float(r["watts"]))
         for r in st.session_state["intervals"]
@@ -218,42 +210,52 @@ with right:
         except Exception as e:
             fit_error = str(e)
 
- cards = st.columns(3, gap="medium")
-
-def card(title: str, value: str, subtitle: str):
-    st.markdown(
-        f"""
-        <div class="cp-card">
-          <div class="cp-muted">{title}</div>
-          <div class="cp-metric">{value}</div>
-          <div class="cp-muted">{subtitle}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-with cards[0]:
-    if cp_w is None:
-        card("Critical Power (CP)", "—", "Sustainable threshold power")
-    else:
-        card("Critical Power (CP)", f"{cp_w:.0f}<span class='cp-unit'>W</span>", "Sustainable threshold power")
-
-with cards[1]:
-    if wprime_j is None:
-        card("W′ (Anaerobic)", "—", "Energy above threshold")
-    else:
-        card("W′ (Anaerobic)", f"{(wprime_j/1000):.1f}<span class='cp-unit'>kJ</span>", "Energy above threshold")
-
-with cards[2]:
-    if r2 is None:
-        card("Model Fit (R²)", "—", "Statistical accuracy (1.0 is perfect)")
-    else:
-        card("Model Fit (R²)", f"{r2:.3f}", "Statistical accuracy (1.0 is perfect)")
     if fit_error:
         st.error(f"Model fit issue: {fit_error}")
 
-    st.write("")
+    # --- Results cards (only show when model exists, removes blank containers) ---
+    def card(title: str, value: str, subtitle: str):
+        st.markdown(
+            f"""
+            <div class="cp-card">
+              <div class="cp-muted">{title}</div>
+              <div class="cp-metric">{value}</div>
+              <div class="cp-muted">{subtitle}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
+    if cp_w is not None and wprime_j is not None and r2 is not None:
+        cards = st.columns(3, gap="medium")
+
+        with cards[0]:
+            card(
+                "Critical Power (CP)",
+                f"{cp_w:.0f}<span class='cp-unit'>W</span>",
+                "Sustainable threshold power",
+            )
+
+        with cards[1]:
+            card(
+                "W′ (Anaerobic)",
+                f"{(wprime_j/1000):.1f}<span class='cp-unit'>kJ</span>",
+                "Energy above threshold",
+            )
+
+        with cards[2]:
+            card(
+                "Model Fit (R²)",
+                f"{r2:.3f}",
+                "Statistical accuracy (1.0 is perfect)",
+            )
+
+        st.write("")
+    else:
+        st.info("Add at least two valid intervals (different durations) to calculate CP and W′.")
+        st.write("")
+
+    # --- Predictor card (still visible, but shows — until model exists) ---
     st.markdown('<div class="cp-card">', unsafe_allow_html=True)
     st.markdown("### Performance Predictor")
     st.markdown(
@@ -268,6 +270,7 @@ with cards[2]:
     pcols[2].markdown("### ➜")
 
     pred_t = int(pred_min) * 60 + int(pred_sec)
+
     if cp_w is not None and wprime_j is not None and pred_t > 0:
         pred_p = predict_power(cp_w, wprime_j, pred_t)
         pcols[3].markdown(
@@ -289,10 +292,12 @@ with cards[2]:
             """,
             unsafe_allow_html=True,
         )
+
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.write("")
 
+    # --- Plot card ---
     st.markdown('<div class="cp-card">', unsafe_allow_html=True)
     st.markdown("### Power Duration Model")
 
@@ -302,7 +307,6 @@ with cards[2]:
         p_curve = cp_w + (wprime_j / t_curve)
 
         ax.plot(t_curve / 60.0, p_curve, linewidth=2)
-
         ax.axhline(cp_w, linestyle="--", linewidth=1)
         ax.text(20.0, cp_w, f"  CP: {cp_w:.0f}W", va="center")
 
